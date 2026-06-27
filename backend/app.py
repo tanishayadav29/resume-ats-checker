@@ -3,10 +3,12 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
-from services.parser import extract_text
+from services.parser import extract_text, extract_resume_profile
 from services.keyword_matcher import match_keywords
 from services.scorer import calculate_ats_score
 from services.detailed_suggestions import generate_detailed_suggestions
+from services.jd_analyzer import analyze_job_description
+from services.insights import build_resume_insights
 
 app = Flask(__name__)
 CORS(app)
@@ -40,6 +42,9 @@ def analyze_resume_endpoint():
     keyword_score, keyword_heatmap, missing_keywords = match_keywords(resume_text, job_description)
     score_data = calculate_ats_score(resume_text, keyword_score)
     detailed_suggestions = generate_detailed_suggestions(score_data, missing_keywords)
+    profile = extract_resume_profile(resume_text)
+    job_analysis = analyze_job_description(job_description)
+    insights = build_resume_insights(profile, job_analysis, score_data, keyword_heatmap, missing_keywords)
 
     return jsonify({
         "score": score_data["score"],
@@ -47,7 +52,10 @@ def analyze_resume_endpoint():
         "sections": score_data["section_presence"],
         "validation": score_data["validation"],
         "keyword_heatmap": keyword_heatmap,
-        "detailed_suggestions": detailed_suggestions
+        "detailed_suggestions": detailed_suggestions,
+        "profile": profile,
+        "job_analysis": job_analysis,
+        "insights": insights
     })
 
 if __name__ == '__main__':

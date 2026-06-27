@@ -30,18 +30,23 @@ METRIC_PATTERNS = [
 CONTACT_PATTERNS = {
     "email": r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
     "phone": r"(?:\+\d{1,2}[\s-])?(?:\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})",
-    "linkedin": r"https?://(?:www\.)?linkedin\.com/in/[A-Za-z0-9_-]+",
-    "github": r"https?://(?:www\.)?github\.com/[A-Za-z0-9_-]+"
+    "linkedin": r"(?:https?://)?(?:www\.)?linkedin\.com/in/[A-Za-z0-9_-]+",
+    "github": r"(?:https?://)?(?:www\.)?github\.com/[A-Za-z0-9_-]+"
 }
 
-KEYWORDS_WEIGHT = 12.5
-SECTIONS_WEIGHT = 12.5
-CONTACT_WEIGHT = 12.5
-LAYOUT_WEIGHT = 12.5
-PAGINATION_WEIGHT = 12.5
-DATES_WEIGHT = 12.5
-ACTIONS_WEIGHT = 12.5
-METRICS_WEIGHT = 12.5
+WEIGHTS = {
+    "Keyword Match": 25,
+    "Skills Match": 15,
+    "Projects Relevance": 15,
+    "Impact & Quantification": 15,
+    "Experience Match": 10,
+    "Resume Formatting": 8,
+    "Grammar & Professional Writing": 5,
+    "Action Verbs": 3,
+    "Education": 2,
+    "Link Validation": 2,
+    "Resume Completeness": 5,
+}
 
 
 def _normalize_text(text):
@@ -59,7 +64,7 @@ def detect_core_sections(text):
         if found:
             found_count += 1
 
-    section_score = round((found_count / len(CORE_SECTION_KEYWORDS)) * SECTIONS_WEIGHT, 2)
+    section_score = round((found_count / len(CORE_SECTION_KEYWORDS)) * 100, 2)
     return presence, section_score
 
 
@@ -74,7 +79,7 @@ def validate_contact_info(text):
         if match:
             valid_count += 1
 
-    contact_score = round((valid_count / len(CONTACT_PATTERNS)) * CONTACT_WEIGHT, 2)
+    contact_score = round((valid_count / len(CONTACT_PATTERNS)) * 100, 2)
     contact_matches["all_valid"] = valid_count == len(CONTACT_PATTERNS)
     return contact_score, contact_matches
 
@@ -87,7 +92,7 @@ def analyze_layout_blocks(text):
 
     overlong_blocks = sum(1 for count in word_counts if count > 50)
     overlong_ratio = overlong_blocks / len(blocks)
-    layout_score = round(max(0.0, (1.0 - overlong_ratio)) * LAYOUT_WEIGHT, 2)
+    layout_score = round(max(0.0, (1.0 - overlong_ratio)) * 100, 2)
 
     return layout_score, {
         "blocks": len(blocks),
@@ -103,7 +108,7 @@ def evaluate_pagination(text):
     word_penalty = 0.0 if word_count <= 750 else min(1.0, (word_count - 750) / 500)
     line_penalty = 0.0 if line_count <= 65 else min(1.0, (line_count - 65) / 35)
     compliance_ratio = max(0.0, 1.0 - ((word_penalty + line_penalty) / 2))
-    pagination_score = round(compliance_ratio * PAGINATION_WEIGHT, 2)
+    pagination_score = round(compliance_ratio * 100, 2)
 
     return pagination_score, {
         "word_count": word_count,
@@ -128,7 +133,7 @@ def evaluate_dates(text):
         }
 
     valid_ratio = len(valid_lines) / len(candidate_lines)
-    date_score = round(min(1.0, valid_ratio) * DATES_WEIGHT, 2)
+    date_score = round(min(1.0, valid_ratio) * 100, 2)
     sample_invalid = [line for line in candidate_lines if line not in valid_lines][:3]
 
     return date_score, {
@@ -142,7 +147,7 @@ def evaluate_dates(text):
 def count_action_verbs(text):
     normalized = _normalize_text(text)
     verb_count = sum(len(re.findall(r"\b" + re.escape(verb) + r"\b", normalized)) for verb in ACTION_VERBS)
-    action_score = round(min(1.0, verb_count / 8) * ACTIONS_WEIGHT, 2)
+    action_score = round(min(1.0, verb_count / 8) * 100, 2)
 
     return action_score, {
         "verb_count": verb_count,
@@ -158,7 +163,7 @@ def count_metric_occurrences(text):
         hits.extend(re.findall(pattern, normalized))
 
     deduped = len(hits)
-    metric_score = round(min(1.0, deduped / 5) * METRICS_WEIGHT, 2)
+    metric_score = round(min(1.0, deduped / 5) * 100, 2)
 
     return metric_score, {
         "metric_count": deduped,
@@ -167,7 +172,27 @@ def count_metric_occurrences(text):
     }
 
 
-def calculate_ats_score(resume_text, keyword_score):
+def _score_from_ratio(value, maximum=100):
+    return round(max(0.0, min(100.0, value)) * maximum / 100, 2)
+
+
+def _get_grade(score):
+    if score >= 95:
+        return 'A+'
+    if score >= 90:
+        return 'A'
+    if score >= 85:
+        return 'B+'
+    if score >= 80:
+        return 'B'
+    if score >= 70:
+        return 'C'
+    if score >= 60:
+        return 'D'
+    return 'F'
+
+
+def calculate_ats_score(resume_text, keyword_score, job_description=''):
     section_presence, section_score = detect_core_sections(resume_text)
     contact_score, contact_validation = validate_contact_info(resume_text)
     layout_score, layout_details = analyze_layout_blocks(resume_text)
@@ -176,18 +201,34 @@ def calculate_ats_score(resume_text, keyword_score):
     action_score, action_details = count_action_verbs(resume_text)
     metric_score, metric_details = count_metric_occurrences(resume_text)
 
+    keyword_component = round(min(100.0, keyword_score * 8), 2)
+    skills_component = round(min(100.0, (keyword_component * 0.8) + (section_score / 12.5 * 20)), 2)
+    projects_component = round(min(100.0, (section_score / 12.5 * 30) + (metric_score * 0.4)), 2)
+    impact_component = round(min(100.0, metric_score * 0.7 + action_score * 0.3), 2)
+    experience_component = round(min(100.0, (section_score / 12.5 * 25) + (dates_score * 0.2)), 2)
+    formatting_component = round(min(100.0, (layout_score * 0.55) + (pagination_score * 0.45)), 2)
+    grammar_component = round(min(100.0, 90 + (action_score / 10)), 2)
+    action_component = action_score
+    education_component = round(min(100.0, section_score + 10), 2)
+    link_component = round(min(100.0, contact_score), 2)
+    completeness_component = round(min(100.0, section_score + 20), 2)
+
     breakdown = {
-        "Keywords": round(keyword_score, 2),
-        "Sections": section_score,
-        "Contact": contact_score,
-        "Layout": layout_score,
-        "Pagination": pagination_score,
-        "Dates": dates_score,
-        "Actions": action_score,
-        "Metrics": metric_score
+        "Keyword Match": round(keyword_component, 2),
+        "Skills Match": round(skills_component, 2),
+        "Projects Relevance": round(projects_component, 2),
+        "Impact & Quantification": round(impact_component, 2),
+        "Experience Match": round(experience_component, 2),
+        "Resume Formatting": round(formatting_component, 2),
+        "Grammar & Professional Writing": round(grammar_component, 2),
+        "Action Verbs": round(action_component, 2),
+        "Education": round(education_component, 2),
+        "Link Validation": round(link_component, 2),
+        "Resume Completeness": round(completeness_component, 2),
     }
 
-    overall_score = round(sum(breakdown.values()), 2)
+    weighted_score = sum(breakdown[key] * WEIGHTS[key] for key in breakdown) / 100
+    overall_score = round(weighted_score, 2)
 
     return {
         "score": overall_score,
@@ -200,5 +241,8 @@ def calculate_ats_score(resume_text, keyword_score):
             "dates": date_details,
             "actions": action_details,
             "metrics": metric_details
-        }
+        },
+        "Grade": _get_grade(overall_score),
+        "job_description": job_description,
+        "weights": WEIGHTS
     }

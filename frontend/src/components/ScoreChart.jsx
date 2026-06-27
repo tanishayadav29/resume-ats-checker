@@ -3,27 +3,30 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 export default function ScoreChart({ breakdown }) {
   const data = [
-    { name: 'Keywords', score: breakdown.Keywords },
-    { name: 'Sections', score: breakdown.Sections },
-    { name: 'Contact', score: breakdown.Contact },
-    { name: 'Layout', score: breakdown.Layout },
-    { name: 'Pagination', score: breakdown.Pagination },
-    { name: 'Dates', score: breakdown.Dates },
-    { name: 'Actions', score: breakdown.Actions },
-    { name: 'Metrics', score: breakdown.Metrics }
+    { name: 'Keyword', score: breakdown['Keyword Match'] ?? 0 },
+    { name: 'Skills', score: breakdown['Skills Match'] ?? 0 },
+    { name: 'Projects', score: breakdown['Projects Relevance'] ?? 0 },
+    { name: 'Impact', score: breakdown['Impact & Quantification'] ?? 0 },
+    { name: 'Experience', score: breakdown['Experience Match'] ?? 0 },
+    { name: 'Formatting', score: breakdown['Resume Formatting'] ?? 0 },
+    { name: 'Grammar', score: breakdown['Grammar & Professional Writing'] ?? 0 },
+    { name: 'Action', score: breakdown['Action Verbs'] ?? 0 },
+    { name: 'Education', score: breakdown['Education'] ?? 0 },
+    { name: 'Links', score: breakdown['Link Validation'] ?? 0 },
+    { name: 'Complete', score: breakdown['Resume Completeness'] ?? 0 }
   ];
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-500 mb-4 uppercase tracking-wider">8-Vector Resume Diagnostics</h3>
-      <div className="h-64">
+      <h3 className="text-sm font-semibold text-slate-500 mb-4 uppercase tracking-wider">Weighted ATS Diagnostics</h3>
+      <div className="h-[420px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+          <BarChart layout="vertical" data={data} margin={{ top: 10, right: 30, left: 100, bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} interval={0} />
-            <YAxis domain={[0, 12.5]} tick={{ fontSize: 12, fill: '#64748b' }} />
-            <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}/12.5`, 'Score']} />
-            <Bar dataKey="score" fill="#4338ca" radius={[6, 6, 0, 0]} />
+            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 12, fill: '#64748b' }} />
+            <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: '#334155' }} width={100} />
+            <Tooltip formatter={(value) => [`${Number(value).toFixed(0)}%`, 'Score']} />
+            <Bar dataKey="score" fill="#4338ca" radius={[0, 6, 6, 0]} barSize={18} />
           </BarChart>
         </ResponsiveContainer>
       </div>

@@ -119,14 +119,29 @@ export default function Dashboard() {
             <div className="space-y-6 animate-fadeIn">
               <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-6">
                 <div className={`border p-6 rounded-3xl shadow-sm text-center font-bold ${getScoreBadgeColor(results.score)}`}>
-                  <span className="text-xs uppercase tracking-wider opacity-80">Overall ATS Index</span>
+                  <span className="text-xs uppercase tracking-wider opacity-80">Overall ATS Score</span>
                   <div className="mt-4 flex items-baseline justify-center gap-2">
-                    <span className="text-6xl">{results.score}</span>
+                    <span className="text-6xl">{results.score.toFixed(0)}</span>
                     <span className="text-2xl font-medium text-slate-600">/100</span>
                   </div>
-                  <p className="mt-3 text-sm text-slate-600">Enterprise recruiter readiness score based on 8 weighted resume vectors.</p>
+                  <div className="mt-4 inline-flex rounded-full bg-white/80 border px-3 py-1 text-sm font-semibold">
+                    Grade {results.Grade || '—'}
+                  </div>
+                  <p className="mt-3 text-sm text-slate-600">Weighted for ATS compatibility, recruiter readability, project relevance, impact, and completeness.</p>
                 </div>
                 <div className="grid grid-cols-1 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[
+                      { label: 'Recruiter Readability', value: Math.round(((results.breakdown?.['Resume Formatting'] ?? 0) + (results.breakdown?.['Grammar & Professional Writing'] ?? 0)) / 2) },
+                      { label: 'Technical Strength', value: Math.round(((results.breakdown?.['Skills Match'] ?? 0) + (results.breakdown?.['Projects Relevance'] ?? 0)) / 2) },
+                      { label: 'Impact Score', value: Math.round(results.breakdown?.['Impact & Quantification'] ?? 0) }
+                    ].map((card) => (
+                      <div key={card.label} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{card.label}</p>
+                        <p className="mt-2 text-2xl font-bold text-slate-900">{card.value}%</p>
+                      </div>
+                    ))}
+                  </div>
                   <ScoreChart breakdown={results.breakdown} />
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Status Summary</h3>
@@ -149,6 +164,33 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
+
+              {results.profile && (
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">Extracted Profile</h3>
+                      <p className="text-sm text-slate-500">Structured resume details captured from the uploaded document.</p>
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-3 text-sm text-slate-700">
+                      <p><span className="font-semibold text-slate-900">Name:</span> {results.profile.name || '—'}</p>
+                      <p><span className="font-semibold text-slate-900">Email:</span> {results.profile.email || '—'}</p>
+                      <p><span className="font-semibold text-slate-900">Phone:</span> {results.profile.phone || '—'}</p>
+                      <p><span className="font-semibold text-slate-900">Links:</span> {Object.values(results.profile.links || {}).join(', ') || 'None detected'}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900 mb-2">Detected Skills</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(results.profile.skills || []).slice(0, 10).map((skill) => (
+                          <span key={skill} className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">{skill}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <Heatmap keywords={results.keyword_heatmap} />
 
